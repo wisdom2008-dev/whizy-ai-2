@@ -95,8 +95,20 @@ class Handler(SimpleHTTPRequestHandler):
         messages = d.get('messages')
         if not isinstance(messages, list) or not messages: return self.end_json(400, {'error': {'message': 'A non-empty messages array is required.'}})
         # Never accept provider URLs or secrets from the public browser.
-        status, result = request_json(AI_BASE_URL + '/chat/completions', {'model': AI_MODEL, 'messages': messages, 'stream': False}, {'Authorization': 'Bearer ' + AI_API_KEY}, timeout=180)
-        if status < 200 or status >= 300: return self.end_json(status, result)
+        status, result = request_json(
+    AI_BASE_URL + '/chat/completions',
+    {
+        'model': AI_MODEL,
+        'messages': messages,
+        'stream': False
+    },
+    {'Authorization': 'Bearer ' + AI_API_KEY},
+    timeout=180
+)
+
+if status < 200 or status >= 300:
+    print(f"[WHIZY AI ERROR] HTTP {status}: {json.dumps(result)[:1500]}")
+    return self.end_json(status, result)
         content = (((result.get('choices') or [{}])[0]).get('message') or {}).get('content')
         if content is None: return self.end_json(502, {'error': {'message': 'AI provider returned no message content.'}})
         self.end_json(200, {'content': content, 'model': result.get('model', AI_MODEL), 'usage': result.get('usage')})
