@@ -222,7 +222,7 @@ class Handler(SimpleHTTPRequestHandler):
             else:
                 self.images(data)
 
-        except (ValueError, json.JSONDecodeError) as error:
+        except ValueError as error:
             self.end_json(400, {
                 'error': {
                     'message': str(error)
@@ -242,9 +242,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.end_json(503, {
                 'error': {
                     'message': (
-                        'AI service is not configured yet. '
-                        'The site owner must add AI_API_KEY '
-                        'in the server environment.'
+                        'AI service is not configured. '
+                        'Add AI_API_KEY in Render.'
                     )
                 }
             })
@@ -254,13 +253,10 @@ class Handler(SimpleHTTPRequestHandler):
         if not isinstance(messages, list) or not messages:
             return self.end_json(400, {
                 'error': {
-                    'message': (
-                        'A non-empty messages array is required.'
-                    )
+                    'message': 'A non-empty messages array is required.'
                 }
             })
 
-        # Provider URLs and secrets are controlled by the server.
         status, result = request_json(
             AI_BASE_URL + '/chat/completions',
             {
@@ -281,16 +277,17 @@ class Handler(SimpleHTTPRequestHandler):
             )
             return self.end_json(status, result)
 
-        content = (
-            ((result.get('choices') or [{}])[0])
-            .get('message', {})
-            .get('content')
-        )
+        choices = result.get('choices') or []
+        content = None
+
+        if choices and isinstance(choices[0], dict):
+            message = choices[0].get('message') or {}
+            content = message.get('content')
 
         if content is None:
             print(
                 '[WHIZY AI ERROR] Provider returned no message content: '
-                f'{json.dumps(result)[:1500]}'
+                + json.dumps(result)[:1500]
             )
             return self.end_json(502, {
                 'error': {
@@ -405,13 +402,10 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     os.chdir(ROOT)
 
+    print(f'WHIZY AI 2.0 hosted server on 0.0.0.0:{PORT}')
     print(
-        f'WHIZY AI 2.0 hosted server on '
-        f'0.0.0.0:{PORT}'
-    )
-    print(
-        'Set Supabase auth + AI provider environment '
-        'variables before public deployment.'
+        'Set Supabase auth + AI provider environment variables '
+        'before public deployment.'
     )
 
     ThreadingHTTPServer(
